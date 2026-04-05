@@ -9,12 +9,14 @@ from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.impute import SimpleImputer
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 
 
 raw_df = pd.read_csv("train.csv")
 df = raw_df.dropna().copy()
 
+analyzer = SentimentIntensityAnalyzer()
 
 df["TextLength"] = df["Text"].str.len()
 df["WordCount"] = df["Text"].str.split().str.len()
@@ -25,9 +27,13 @@ df["SummaryLength"] = df["Summary"].str.len()
 df["SummaryWordCount"] = df["Summary"].str.split().str.len()
 df["SummarySentenceCount"] = df["Summary"].str.count(r"[.!?]")
 df["SummaryExclamationCount"] = df["Summary"].str.count("!")
+# df["ReviewSentiment"] = df["Text"].apply(
+# 	lambda x: analyzer.polarity_scores(str(x))["compound"])
+# df["SummarySentiment"] = df["Summary"].apply(
+# 	lambda x: analyzer.polarity_scores(str(x))["compound"])
 
 
-X_train, X_test, y_train, y_test = train_test_split(df, df["Score"], train_size=0.8, random_state=100)
+X_train, X_test, y_train, y_test = train_test_split(df, df["Score"], train_size=0.8, random_state=58)
 
 
 def exclusiveStats(df, old_avg_name, old_cnt_name, new_avg_name, target_name):
@@ -78,7 +84,8 @@ with open("vocabulary.txt") as f:
 
 preprocess = ColumnTransformer(
 	transformers=[
-		("tfidf", TfidfVectorizer(vocabulary=vocabulary), "Text"),
+		("tfidf_text", TfidfVectorizer(vocabulary=vocabulary), "Text"),
+		("tfidf_summary", TfidfVectorizer(vocabulary=vocabulary), "Summary"),
 		("numeric", Pipeline([
 			("impute", SimpleImputer(strategy="constant", fill_value=0, add_indicator=True)),
 			("scale", StandardScaler(with_mean=False))], verbose=True), numeric_features)
@@ -87,15 +94,15 @@ preprocess = ColumnTransformer(
 
 pipeline = Pipeline([
 	("preprocess", preprocess),
-	("regression", Ridge(alpha=0))
+	("regression", Ridge(alpha=5))
 ], verbose=True)
 
 
 
 pipeline.fit(X_train, y_train)
 
-# print(np.sqrt(mean_squared_error(pipeline.predict(X_test), y_test)))
-# print(np.sqrt(mean_squared_error(pipeline.predict(X_train), y_train)))
+print(np.sqrt(mean_squared_error(pipeline.predict(X_test), y_test)))
+print(np.sqrt(mean_squared_error(pipeline.predict(X_train), y_train)))
 
-joblib.dump(pipeline, "model_pipeline.pkl")
+# joblib.dump(pipeline, "model_pipeline.pkl")
 
