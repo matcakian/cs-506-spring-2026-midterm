@@ -18,6 +18,19 @@ df["SummaryWordCount"] = df["Summary"].str.split().str.len()
 df["SummarySentenceCount"] = df["Summary"].str.count(r"[.!?]")
 df["SummaryExclamationCount"] = df["Summary"].str.count("!")
 
+product_df = raw_df.groupby("ProductId").agg(ExclusiveProductAverage=("Score", "mean"),
+	ProductReviewCount=("Score", "count"))
+
+df = df.merge(product_df, on="ProductId", how="left")
+df["ProductReviewCount"].fillna(0, inplace=True)
+
+
+user_df = raw_df.groupby("UserId").agg(ExclusiveReviewAverage=("Score", "mean"),
+	ReviewCount=("Score", "count"))
+
+df = df.merge(user_df, on="UserId", how="left")
+df["ReviewCount"].fillna(0, inplace=True)
+
 
 df_features = df.columns.drop(["Id", "ProductId", "UserId"])
 

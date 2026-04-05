@@ -8,10 +8,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.impute import SimpleImputer
+
 
 
 raw_df = pd.read_csv("train.csv")
 df = raw_df.dropna().copy()
+
 
 df["TextLength"] = df["Text"].str.len()
 df["WordCount"] = df["Text"].str.split().str.len()
@@ -24,27 +27,69 @@ df["SummarySentenceCount"] = df["Summary"].str.count(r"[.!?]")
 df["SummaryExclamationCount"] = df["Summary"].str.count("!")
 
 
-# print(df.info())
+X_train, X_test, y_train, y_test = train_test_split(df, df["Score"], train_size=0.8, random_state=100)
 
-df_features = df.columns.drop(["Id", "ProductId", "UserId", "Score"])
+
+def exclusiveStats(df, old_avg_name, old_cnt_name, new_avg_name, target_name):
+	df = df.copy()
+	tmp = df[old_cnt_name] > 1
+
+	df.loc[~tmp, new_avg_name] = pd.NA
+	df.loc[tmp, new_avg_name] = (df.loc[tmp, old_avg_name] * df.loc[tmp, old_cnt_name] - 
+		df.loc[tmp, target_name]) / (df.loc[tmp, old_cnt_name] - 1)
+
+	df = df.drop(old_avg_name, axis=1)
+	df[old_cnt_name] = df[old_cnt_name] - 1
+
+	return df
+
+
+product_df = X_train.groupby("ProductId").agg(AverageProductScore=("Score", "mean"),
+	ProductReviewCount=("Score", "count"))
+
+X_train = exclusiveStats(X_train.merge(product_df, on="ProductId", how="left"),
+	"AverageProductScore", "ProductReviewCount", "ExclusiveProductAverage", "Score")
+
+X_test = X_test.merge(product_df, on="ProductId", how="left").rename(
+	columns={"AverageProductScore": "ExclusiveProductAverage"})
+
+X_test["ProductReviewCount"].fillna(0, inplace=True)
+
+
+user_df = X_train.groupby("UserId").agg(AverageReviewScore=("Score", "mean"),
+	ReviewCount=("Score", "count"))
+
+X_train = exclusiveStats(X_train.merge(user_df, on="UserId", how="left"),
+	"AverageReviewScore", "ReviewCount", "ExclusiveReviewAverage", "Score")
+
+X_test = X_test.merge(user_df, on="UserId", how="left").rename(
+	columns={"AverageReviewScore": "ExclusiveReviewAverage"})
+
+X_test["ReviewCount"].fillna(0, inplace=True)
+
+
+
+df_features = X_train.columns.drop(["Id", "ProductId", "UserId", "Score"])
 numeric_features = df_features.drop(["Summary", "Text"])
 
-X_train, X_test, y_train, y_test = train_test_split(df[df_features], df["Score"], train_size=0.8, random_state=73)
+with open("vocabulary.txt") as f:
+    vocabulary = [line.strip() for line in f]
 
 
 preprocess = ColumnTransformer(
 	transformers=[
-		("tfidf", TfidfVectorizer(max_features=10000,
-			ngram_range=(1, 2), min_df=5, max_df=.8, stop_words="english"), "Text"),
-		("numeric", StandardScaler(with_mean=False), numeric_features)
-	]
-)
+		("tfidf", TfidfVectorizer(vocabulary=vocabulary), "Text"),
+		("numeric", Pipeline([
+			("impute", SimpleImputer(strategy="constant", fill_value=0, add_indicator=True)),
+			("scale", StandardScaler(with_mean=False))], verbose=True), numeric_features)
+	], verbose=True)
 
 
 pipeline = Pipeline([
 	("preprocess", preprocess),
-	("regression", Ridge(alpha=7))
+	("regression", Ridge(alpha=0))
 ], verbose=True)
+
 
 
 pipeline.fit(X_train, y_train)
