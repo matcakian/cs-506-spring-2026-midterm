@@ -14,11 +14,14 @@ python test.py
 - Running test.py creates: result.csv
 
 ## Files
-main.py          # training
-test.py          # inference
-vocabulary.txt   # TF-IDF vocab
-train.csv        # training data
-test.csv         # test data
+
+- `main.py` — training pipeline  
+- `test.py` — inference / submission script  
+- `vocabulary.txt` — TF-IDF vocabulary
+
+### Data (not included in repo)
+- `train.csv` — training data  
+- `test.csv` — test data  
 
 ## Output
 result.csv       # final predictions (Id, Score)
