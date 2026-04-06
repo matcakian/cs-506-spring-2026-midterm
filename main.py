@@ -26,15 +26,6 @@ df["SummaryWordCount"] = df["Summary"].str.split().str.len()
 df["SummarySentenceCount"] = df["Summary"].str.count(r"[.!?]")
 df["SummaryExclamationCount"] = df["Summary"].str.count("!")
 
-texts = df["Text"].astype(str).tolist()
-summaries = df["Summary"].astype(str).tolist()
-
-text_sentiment = [analyzer.polarity_scores(t)["compound"] for t in tqdm(texts)]
-summary_sentiment = [analyzer.polarity_scores(t)["compound"] for t in tqdm(summaries)]
-
-df["ReviewSentiment"] = text_sentiment
-df["SummarySentiment"] = summary_sentiment
-
 
 X_train, X_test, y_train, y_test = train_test_split(df, df["Score"], train_size=0.8, random_state=58)
 
