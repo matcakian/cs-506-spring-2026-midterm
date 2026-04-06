@@ -88,7 +88,7 @@ preprocess = ColumnTransformer(
 
 pipeline = Pipeline([
 	("preprocess", preprocess),
-	("regression", Ridge(alpha=0))
+	("regression", Ridge(alpha=5))
 ], verbose=True)
 
 
